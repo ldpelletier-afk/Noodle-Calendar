@@ -1,0 +1,80 @@
+/* --- RESET & BASIC --- */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: sans-serif; background-color: #f4f4f4; height: 100vh; padding: 20px; }
+
+/* --- GRID LAYOUT --- */
+.app-container {
+    display: grid;
+    height: calc(100vh - 40px);
+    gap: 20px;
+    grid-template-columns: 1fr 300px; 
+    grid-template-rows: 1fr min-content; 
+    grid-template-areas: "calendar todo" "input todo";
+}
+
+.calendar-section { grid-area: calendar; background: white; padding: 20px; overflow: hidden; display: flex; flex-direction: column;}
+.todo-section     { grid-area: todo;     background: white; padding: 20px; border-left: 2px solid #eee; overflow-y: auto;}
+.input-section    { grid-area: input;    background: white; padding: 20px; border-top: 2px solid #eee;}
+
+/* --- HEADER & NAVIGATION --- */
+.calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #eee;}
+.view-toggles button { padding: 8px 15px; cursor: pointer; border: 1px solid #ccc; background: white; font-size: 14px;}
+.view-toggles button.active-view { background: #e3f2fd; font-weight: bold; border-color: #2196F3;}
+.view-toggles button:first-child { border-radius: 5px 0 0 5px; }
+.view-toggles button:last-child { border-radius: 0 5px 5px 0; border-left: none;}
+
+.date-nav { display: flex; align-items: center; gap: 15px; }
+.nav-arrow { padding: 5px 10px; cursor: pointer; border: 1px solid #ccc; background: white; border-radius: 5px; font-weight: bold;}
+.nav-arrow:hover { background: #eee; }
+#current-date-label { font-size: 1.2rem; min-width: 200px; text-align: center;}
+
+/* --- CALENDAR TABLES --- */
+.calendar-wrapper { flex-grow: 1; overflow: auto; position: relative;}
+.planner-table { width: 100%; border-collapse: collapse; table-layout: fixed; } 
+.hidden { display: none !important; }
+
+.planner-table th, .planner-table td {
+    border-right: 1px solid #ccc; border-left: 1px solid #ccc;
+    padding: 0; height: 25px; vertical-align: top; position: relative;
+}
+.planner-table th { background-color: #f9f9f9; padding: 8px; border-bottom: 2px solid #aaa; height: auto;}
+.planner-table th:first-child, #week-view-table td:first-child { 
+    width: 80px; background-color: #fcfcfc; text-align: center; vertical-align: middle; font-size: 0.8rem; border-bottom: 1px solid #ccc;
+}
+
+/* Week Grid Lines */
+.hour-row td:not(:first-child) { border-top: 1px solid #ccc; }
+.half-hour-row td:not(:first-child) { border-top: 1px dashed #eee; border-bottom: none; }
+
+/* Month Grid Specifics */
+#month-view-table td { height: 100px; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; padding: 5px;}
+.month-date-number { font-weight: bold; font-size: 0.9rem; color: #555; display: block; margin-bottom: 5px;}
+
+td.drag-over { background-color: #e3f2fd; }
+
+/* --- SIDEBAR & TASKS --- */
+.script-font { font-family: "Brush Script MT", cursive; text-align: center; font-size: 2.5rem; margin-bottom: 20px; }
+#todo-list-container { min-height: 200px; }
+
+.task-bubble {
+    background-color: #eef; border: 1px solid #ccf; padding: 2px 5px; margin-bottom: 10px;
+    border-radius: 8px; font-size: 0.85rem; cursor: grab; box-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+    user-select: none; overflow: hidden; position: relative; padding-right: 20px; line-height: 1.2; z-index: 100;
+}
+.task-bubble:active { cursor: grabbing; }
+
+/* Tasks in Week View */
+#week-view-table td .task-bubble { position: absolute; top: 0; left: 0; width: 100%; margin: 0; border-radius: 0; z-index: 10; }
+/* Tasks in Month View */
+#month-view-table td .task-bubble { position: relative; width: 100%; height: auto !important; margin-bottom: 2px; border-radius: 4px; font-size: 0.75rem;}
+
+.delete-btn { position: absolute; top: 2px; right: 5px; cursor: pointer; font-weight: bold; color: #888; font-size: 14px; line-height: 1; z-index: 20; }
+.delete-btn:hover { color: #ff4444; }
+
+/* --- INPUT AREA --- */
+.chatbox-container { display: flex; flex-direction: column; gap: 10px; max-width: 600px; margin: 0 auto; }
+#task-input { width: 100%; height: 60px; padding: 10px; border: 2px solid #ccc; border-radius: 5px; resize: none; }
+.controls { display: flex; gap: 10px; }
+#duration-select { padding: 10px; border-radius: 5px; border: 1px solid #ccc; background: white; cursor: pointer;}
+#submit-btn { padding: 10px 20px; background-color: #ddd; border: 1px solid #bbb; border-radius: 5px; cursor: pointer; font-weight: bold; flex-grow: 1;}
+#submit-btn:hover { background-color: #ccc; }

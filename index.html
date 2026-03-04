@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Planner App</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="app-container">
+
+        <main class="calendar-section">
+            
+            <header class="calendar-header">
+                <div class="view-toggles">
+                    <button id="btn-week" class="active-view">Week</button>
+                    <button id="btn-month">Month</button>
+                </div>
+                <div class="date-nav">
+                    <button id="btn-prev" class="nav-arrow">&lt;</button>
+                    <h2 id="current-date-label">Date Label</h2>
+                    <button id="btn-next" class="nav-arrow">&gt;</button>
+                </div>
+            </header>
+
+            <div class="calendar-wrapper">
+                <table id="week-view-table" class="planner-table">
+                    <thead>
+                        <tr id="week-header-row">
+                            <th>Time</th>
+                            </tr>
+                    </thead>
+                    <tbody id="week-body">
+                        </tbody>
+                </table>
+
+                <table id="month-view-table" class="planner-table hidden">
+                    <thead>
+                        <tr>
+                            <th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th>
+                        </tr>
+                    </thead>
+                    <tbody id="month-body">
+                        </tbody>
+                </table>
+            </div>
+        </main>
+
+        <aside class="todo-section">
+            <h1 class="script-font">to do list</h1>
+            <ul id="todo-list-container" class="drop-zone"></ul>
+        </aside>
+
+        <section class="input-section">
+            <div class="chatbox-container">
+                <textarea id="task-input" placeholder="Enter your task here..."></textarea>
+                <div class="controls">
+                    <select id="duration-select">
+                        <option value="30">30 Minutes</option>
+                        <option value="60" selected>1 Hour</option>
+                        <option value="90">1.5 Hours</option>
+                        <option value="120">2 Hours</option>
+                        <option value="180">3 Hours</option>
+                    </select>
+                    <button id="submit-btn">Submit</button>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
