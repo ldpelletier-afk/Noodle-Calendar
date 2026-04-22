@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real-Time Planner App</title>
+    <title>Noodle Calendar</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,16 +11,18 @@
     <div class="app-container">
 
         <main class="calendar-section">
-            
+
             <header class="calendar-header">
                 <div class="view-toggles">
                     <button id="btn-week" class="active-view">Week</button>
                     <button id="btn-month">Month</button>
                 </div>
                 <div class="date-nav">
-                    <button id="btn-prev" class="nav-arrow">&lt;</button>
+                    <button id="btn-today" title="Jump to today">Today</button>
+                    <button id="btn-prev" class="nav-arrow" title="Previous">&lsaquo;</button>
                     <h2 id="current-date-label">Date Label</h2>
-                    <button id="btn-next" class="nav-arrow">&gt;</button>
+                    <button id="btn-next" class="nav-arrow" title="Next">&rsaquo;</button>
+                    <button id="btn-theme" title="Toggle theme">🌙</button>
                 </div>
             </header>
 
@@ -29,10 +31,9 @@
                     <thead>
                         <tr id="week-header-row">
                             <th>Time</th>
-                            </tr>
+                        </tr>
                     </thead>
-                    <tbody id="week-body">
-                        </tbody>
+                    <tbody id="week-body"></tbody>
                 </table>
 
                 <table id="month-view-table" class="planner-table hidden">
@@ -41,30 +42,33 @@
                             <th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th>
                         </tr>
                     </thead>
-                    <tbody id="month-body">
-                        </tbody>
+                    <tbody id="month-body"></tbody>
                 </table>
             </div>
         </main>
 
         <aside class="todo-section">
-            <h1 class="script-font">to do list</h1>
+            <div class="sidebar-header">
+                <h1 class="script-font">to do list</h1>
+                <span id="task-count" class="task-count">0</span>
+            </div>
             <ul id="todo-list-container" class="drop-zone"></ul>
         </aside>
 
         <section class="input-section">
             <div class="chatbox-container">
-                <textarea id="task-input" placeholder="Enter your task here..."></textarea>
+                <textarea id="task-input" placeholder="What's on your plate? (e.g. Finish design review)" rows="1"></textarea>
                 <div class="controls">
-                    <select id="duration-select">
-                        <option value="30">30 Minutes</option>
-                        <option value="60" selected>1 Hour</option>
-                        <option value="90">1.5 Hours</option>
-                        <option value="120">2 Hours</option>
-                        <option value="180">3 Hours</option>
-                    </select>
-                    <button id="submit-btn">Submit</button>
+                    <div class="duration-chips" id="duration-chips">
+                        <button type="button" class="duration-chip" data-minutes="30">30m</button>
+                        <button type="button" class="duration-chip active" data-minutes="60">1h</button>
+                        <button type="button" class="duration-chip" data-minutes="90">1.5h</button>
+                        <button type="button" class="duration-chip" data-minutes="120">2h</button>
+                        <button type="button" class="duration-chip" data-minutes="180">3h</button>
+                    </div>
+                    <button id="submit-btn">Add task</button>
                 </div>
+                <div class="input-hint">Press <kbd>Enter</kbd> to add · <kbd>Shift</kbd>+<kbd>Enter</kbd> for newline</div>
             </div>
         </section>
 
