@@ -22,6 +22,9 @@
                     <button id="btn-prev" class="nav-arrow" title="Previous">&lsaquo;</button>
                     <h2 id="current-date-label">Date Label</h2>
                     <button id="btn-next" class="nav-arrow" title="Next">&rsaquo;</button>
+                    <button id="btn-export" title="Export tasks as JSON">⇩</button>
+                    <button id="btn-import" title="Import tasks from JSON">⇧</button>
+                    <input type="file" id="import-file" accept="application/json,.json" hidden>
                     <button id="btn-theme" title="Toggle theme">🌙</button>
                 </div>
             </header>
@@ -72,6 +75,48 @@
             </div>
         </section>
 
+    </div>
+
+    <div id="edit-dialog" class="modal-backdrop hidden">
+        <div class="modal">
+            <header class="modal-header">
+                <h3>Edit task</h3>
+                <button class="modal-close" id="edit-close" title="Close">×</button>
+            </header>
+            <div class="modal-body">
+                <label class="modal-checkbox">
+                    <input type="checkbox" id="edit-completed">
+                    <span>Mark complete</span>
+                </label>
+
+                <label class="modal-field">
+                    <span>Task</span>
+                    <input type="text" id="edit-text" maxlength="200">
+                </label>
+
+                <label class="modal-field">
+                    <span>Duration</span>
+                    <div class="duration-chips" id="edit-duration-chips">
+                        <button type="button" class="duration-chip" data-minutes="30">30m</button>
+                        <button type="button" class="duration-chip" data-minutes="60">1h</button>
+                        <button type="button" class="duration-chip" data-minutes="90">1.5h</button>
+                        <button type="button" class="duration-chip" data-minutes="120">2h</button>
+                        <button type="button" class="duration-chip" data-minutes="180">3h</button>
+                    </div>
+                </label>
+
+                <label class="modal-field">
+                    <span>Notes</span>
+                    <textarea id="edit-notes" rows="3" placeholder="Optional details…"></textarea>
+                </label>
+            </div>
+            <footer class="modal-footer">
+                <button id="edit-delete" class="btn-danger">Delete</button>
+                <div class="spacer"></div>
+                <button id="edit-cancel" class="btn-ghost">Cancel</button>
+                <button id="edit-save" class="btn-primary">Save</button>
+            </footer>
+        </div>
     </div>
 
     <script src="script.js"></script>

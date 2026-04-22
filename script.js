@@ -2,47 +2,63 @@
 const ONE_HOUR_HEIGHT = 50;
 const startHour = 7;
 const endHour = 20;
-const MAX_MONTH_BUBBLES = 2; // shown before "+N more"
+const MAX_MONTH_BUBBLES = 2;
+const STORAGE_KEY = 'calendarTasks';
+const THEME_KEY = 'calendarTheme';
 
 // --- STATE ---
 let activeDate = new Date();
 let currentView = 'week';
 let appTasks = [];
 let selectedDuration = 60;
-let nowLineTimer = null;
+let editingId = null;
+let editingDuration = 60;
 
 // --- ELEMENTS ---
-const taskInput = document.getElementById('task-input');
-const submitBtn = document.getElementById('submit-btn');
-const durationChips = document.getElementById('duration-chips');
-const todoListContainer = document.getElementById('todo-list-container');
-const taskCountEl = document.getElementById('task-count');
-const weekBody = document.getElementById('week-body');
-const monthBody = document.getElementById('month-body');
-const weekHeaderRow = document.getElementById('week-header-row');
-const dateLabel = document.getElementById('current-date-label');
-const btnPrev = document.getElementById('btn-prev');
-const btnNext = document.getElementById('btn-next');
-const btnToday = document.getElementById('btn-today');
-const btnTheme = document.getElementById('btn-theme');
-const btnWeek = document.getElementById('btn-week');
-const btnMonth = document.getElementById('btn-month');
-const tableWeek = document.getElementById('week-view-table');
-const tableMonth = document.getElementById('month-view-table');
+const $ = (id) => document.getElementById(id);
+const taskInput = $('task-input');
+const submitBtn = $('submit-btn');
+const durationChips = $('duration-chips');
+const todoListContainer = $('todo-list-container');
+const taskCountEl = $('task-count');
+const weekBody = $('week-body');
+const monthBody = $('month-body');
+const weekHeaderRow = $('week-header-row');
+const dateLabel = $('current-date-label');
+const btnPrev = $('btn-prev');
+const btnNext = $('btn-next');
+const btnToday = $('btn-today');
+const btnTheme = $('btn-theme');
+const btnWeek = $('btn-week');
+const btnMonth = $('btn-month');
+const btnExport = $('btn-export');
+const btnImport = $('btn-import');
+const importFile = $('import-file');
+const tableWeek = $('week-view-table');
+const tableMonth = $('month-view-table');
+
+// Edit dialog
+const editDialog = $('edit-dialog');
+const editText = $('edit-text');
+const editNotes = $('edit-notes');
+const editCompleted = $('edit-completed');
+const editDurationChips = $('edit-duration-chips');
+const editClose = $('edit-close');
+const editCancel = $('edit-cancel');
+const editSave = $('edit-save');
+const editDelete = $('edit-delete');
 
 // --- HELPERS ---
 function formatTime(hour) {
     const h = hour % 12 || 12;
     return `${h} ${hour >= 12 ? 'PM' : 'AM'}`;
 }
-
 function getISODate(dateObj) {
     const y = dateObj.getFullYear();
     const m = String(dateObj.getMonth() + 1).padStart(2, '0');
     const d = String(dateObj.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
 }
-
 function getStartOfWeek(date) {
     const d = new Date(date);
     const day = d.getDay();
@@ -51,18 +67,14 @@ function getStartOfWeek(date) {
     d.setHours(0, 0, 0, 0);
     return d;
 }
-
 function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
-
-// Deterministic hue from task text, so the same task always keeps its color.
 function hueFromText(text) {
     let h = 0;
     for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) >>> 0;
     return h % 360;
 }
-
 function formatDuration(minutes) {
     if (minutes < 60) return `${minutes}m`;
     const h = minutes / 60;
@@ -70,34 +82,51 @@ function formatDuration(minutes) {
 }
 
 // --- DATA ---
-function saveTasks() {
-    localStorage.setItem('calendarTasks', JSON.stringify(appTasks));
+function normalizeTask(t) {
+    // Back-compat: legacy shape had t.location as object {type,date,time}
+    if (t && t.location && typeof t.location === 'object') {
+        return {
+            id: t.id || generateId(),
+            text: t.text || '',
+            minutes: parseInt(t.minutes) || 60,
+            location: t.location.type || 'sidebar',
+            date: t.location.date || null,
+            time: t.location.time === 'all-day' ? `${startHour}:00` : (t.location.time || null),
+            notes: '',
+            completed: false
+        };
+    }
+    return {
+        id: t.id || generateId(),
+        text: t.text || '',
+        minutes: parseInt(t.minutes) || 60,
+        location: t.location || 'sidebar',
+        date: t.date || null,
+        time: t.time || null,
+        notes: t.notes || '',
+        completed: Boolean(t.completed)
+    };
 }
 
+function saveTasks() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(appTasks));
+}
 function loadTasks() {
-    const data = localStorage.getItem('calendarTasks');
+    const data = localStorage.getItem(STORAGE_KEY);
     if (!data) return;
-    const parsed = JSON.parse(data);
-    appTasks = parsed.map(t => {
-        if (!t.id) {
-            return {
-                id: generateId(),
-                text: t.text,
-                minutes: parseInt(t.minutes),
-                location: t.location.type,
-                date: t.location.date || null,
-                time: t.location.time === 'all-day' ? `${startHour}:00` : (t.location.time || null)
-            };
-        }
-        return t;
-    });
+    try {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed)) appTasks = parsed.map(normalizeTask);
+    } catch (e) {
+        console.warn('Could not parse saved tasks', e);
+    }
 }
 
 // --- THEME ---
 function applyTheme(theme) {
     document.body.dataset.theme = theme;
     btnTheme.textContent = theme === 'dark' ? '☀️' : '🌙';
-    localStorage.setItem('calendarTheme', theme);
+    localStorage.setItem(THEME_KEY, theme);
 }
 
 // --- RENDER ---
@@ -123,7 +152,6 @@ function renderApp() {
 function renderWeekView() {
     weekHeaderRow.innerHTML = '<th>Time</th>';
     weekBody.innerHTML = '';
-
     const startOfWeek = getStartOfWeek(activeDate);
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 6);
@@ -134,13 +162,11 @@ function renderWeekView() {
 
     const weekDates = [];
     const dayNames = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-
     for (let i = 0; i < 7; i++) {
         const d = new Date(startOfWeek);
         d.setDate(startOfWeek.getDate() + i);
         const iso = getISODate(d);
         weekDates.push(iso);
-
         const th = document.createElement('th');
         th.innerHTML = `${dayNames[i]}<small>${d.getDate()}</small>`;
         if (iso === todayISO) th.classList.add('today-col');
@@ -154,7 +180,6 @@ function renderWeekView() {
         timeCell.textContent = formatTime(h);
         timeCell.rowSpan = 2;
         rowTop.appendChild(timeCell);
-
         for (let i = 0; i < 7; i++) {
             const cell = document.createElement('td');
             cell.dataset.date = weekDates[i];
@@ -222,13 +247,34 @@ function renderMonthView() {
 function buildBubble(task, { compact = false } = {}) {
     const bubble = document.createElement('li');
     bubble.className = 'task-bubble';
+    if (task.completed) bubble.classList.add('completed');
     bubble.id = task.id;
     bubble.draggable = true;
     bubble.style.setProperty('--bubble-hue', hueFromText(task.text));
 
+    // completion toggle dot
+    const dot = document.createElement('span');
+    dot.className = 'complete-dot';
+    dot.title = task.completed ? 'Mark incomplete' : 'Mark complete';
+    dot.addEventListener('click', (e) => {
+        e.stopPropagation();
+        task.completed = !task.completed;
+        saveTasks();
+        renderBubbles();
+    });
+    dot.addEventListener('mousedown', e => e.stopPropagation());
+    bubble.appendChild(dot);
+
     const textSpan = document.createElement('span');
     textSpan.className = 'task-text';
     textSpan.textContent = task.text;
+    if (task.notes) {
+        const note = document.createElement('span');
+        note.className = 'notes-indicator';
+        note.textContent = '✎';
+        note.title = task.notes;
+        textSpan.appendChild(note);
+    }
     bubble.appendChild(textSpan);
 
     if (!compact) {
@@ -251,6 +297,12 @@ function buildBubble(task, { compact = false } = {}) {
     deleteBtn.addEventListener('mousedown', e => e.stopPropagation());
     bubble.appendChild(deleteBtn);
 
+    // Open edit dialog on click (not drag)
+    bubble.addEventListener('click', (e) => {
+        if (e.target === dot || e.target === deleteBtn) return;
+        openEditDialog(task.id);
+    });
+
     setupDraggable(bubble);
     return bubble;
 }
@@ -260,7 +312,6 @@ function renderBubbles() {
     todoListContainer.innerHTML = '';
     document.querySelectorAll('.task-bubble, .more-chip').forEach(el => el.remove());
 
-    // Sidebar + week grid: one bubble per task
     appTasks.forEach(task => {
         if (task.location === 'sidebar') {
             todoListContainer.appendChild(buildBubble(task));
@@ -276,7 +327,6 @@ function renderBubbles() {
         }
     });
 
-    // Month view: group by date, cap at MAX_MONTH_BUBBLES with overflow chip
     if (currentView === 'month') {
         const byDate = new Map();
         appTasks.forEach(task => {
@@ -284,7 +334,6 @@ function renderBubbles() {
             if (!byDate.has(task.date)) byDate.set(task.date, []);
             byDate.get(task.date).push(task);
         });
-
         byDate.forEach((tasks, date) => {
             const cell = tableMonth.querySelector(`td[data-date="${date}"]`);
             if (!cell) return;
@@ -308,7 +357,7 @@ function renderBubbles() {
 }
 
 function updateTaskCount() {
-    const n = appTasks.filter(t => t.location === 'sidebar').length;
+    const n = appTasks.filter(t => t.location === 'sidebar' && !t.completed).length;
     taskCountEl.textContent = n;
 }
 
@@ -351,20 +400,12 @@ function openMonthPopover(cell, tasks, dateStr) {
 function updateNowLine() {
     document.querySelectorAll('.now-line').forEach(el => el.remove());
     if (currentView !== 'week') return;
-
     const now = new Date();
-    const todayISO = getISODate(now);
-    const todayCol = tableWeek.querySelector(`td.today-col[data-time="${startHour}:00"]`);
-    if (!todayCol) return; // today not in current week
-
     const hour = now.getHours();
     const minute = now.getMinutes();
     if (hour < startHour || hour >= endHour) return;
-
-    // Find the hour row for this hour to position relative to it
     const hourRowCell = tableWeek.querySelector(`td.today-col[data-time="${hour}:00"]`);
     if (!hourRowCell) return;
-
     const offsetWithinHour = (minute / 60) * ONE_HOUR_HEIGHT;
     const line = document.createElement('div');
     line.className = 'now-line';
@@ -372,20 +413,78 @@ function updateNowLine() {
     hourRowCell.appendChild(line);
 }
 
+// --- EDIT DIALOG ---
+function openEditDialog(id) {
+    const task = appTasks.find(t => t.id === id);
+    if (!task) return;
+    editingId = id;
+    editingDuration = task.minutes;
+    editText.value = task.text;
+    editNotes.value = task.notes || '';
+    editCompleted.checked = Boolean(task.completed);
+    editDurationChips.querySelectorAll('.duration-chip').forEach(c => {
+        c.classList.toggle('active', parseInt(c.dataset.minutes) === task.minutes);
+    });
+    editDialog.classList.remove('hidden');
+    setTimeout(() => editText.focus(), 30);
+}
+
+function closeEditDialog() {
+    editingId = null;
+    editDialog.classList.add('hidden');
+}
+
+function saveEditDialog() {
+    if (!editingId) return;
+    const task = appTasks.find(t => t.id === editingId);
+    if (!task) return closeEditDialog();
+    const newText = editText.value.trim();
+    if (newText) task.text = newText;
+    task.notes = editNotes.value.trim();
+    task.completed = editCompleted.checked;
+    task.minutes = editingDuration;
+    saveTasks();
+    renderBubbles();
+    closeEditDialog();
+}
+
+editClose.addEventListener('click', closeEditDialog);
+editCancel.addEventListener('click', closeEditDialog);
+editSave.addEventListener('click', saveEditDialog);
+editDelete.addEventListener('click', () => {
+    if (!editingId) return;
+    appTasks = appTasks.filter(t => t.id !== editingId);
+    saveTasks();
+    renderBubbles();
+    closeEditDialog();
+});
+editDialog.addEventListener('click', (e) => {
+    if (e.target === editDialog) closeEditDialog();
+});
+editText.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); saveEditDialog(); }
+});
+editDurationChips.addEventListener('click', (e) => {
+    const chip = e.target.closest('.duration-chip');
+    if (!chip) return;
+    editDurationChips.querySelectorAll('.duration-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    editingDuration = parseInt(chip.dataset.minutes);
+});
+
 // --- ADD TASK ---
 function addTask() {
     const text = taskInput.value.trim();
-    if (!text) {
-        taskInput.focus();
-        return;
-    }
+    if (!text) { taskInput.focus(); return; }
     appTasks.push({
         id: generateId(),
         text,
         minutes: selectedDuration,
         location: 'sidebar',
         date: null,
-        time: null
+        time: null,
+        notes: '',
+        completed: false
     });
     taskInput.value = '';
     autosizeTextarea();
@@ -404,10 +503,7 @@ function setupDraggable(element) {
     });
     element.addEventListener('dragend', () => {
         if (draggedItem) {
-            setTimeout(() => {
-                draggedItem.style.opacity = '1';
-                draggedItem = null;
-            }, 0);
+            setTimeout(() => { draggedItem.style.opacity = '1'; draggedItem = null; }, 0);
         }
     });
 }
@@ -422,10 +518,8 @@ function setupDropZone(element) {
         e.preventDefault();
         element.classList.remove('drag-over');
         if (!draggedItem) return;
-
         const task = appTasks.find(t => t.id === draggedItem.id);
         if (!task) return;
-
         if (element.tagName === 'TD') {
             task.location = 'grid';
             task.date = element.dataset.date;
@@ -441,6 +535,54 @@ function setupDropZone(element) {
     });
 }
 
+// --- IMPORT / EXPORT ---
+function exportTasks() {
+    const payload = {
+        version: 2,
+        exportedAt: new Date().toISOString(),
+        tasks: appTasks
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `noodle-calendar-${getISODate(new Date())}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+}
+
+function importTasks(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = JSON.parse(e.target.result);
+            const incoming = Array.isArray(data) ? data : data.tasks;
+            if (!Array.isArray(incoming)) throw new Error('Invalid file format');
+            const normalized = incoming.map(normalizeTask);
+            const replace = confirm(
+                `Import ${normalized.length} tasks?\n\n` +
+                `OK = replace current tasks\nCancel = merge (keep both)`
+            );
+            if (replace) {
+                appTasks = normalized;
+            } else {
+                const existingIds = new Set(appTasks.map(t => t.id));
+                normalized.forEach(t => {
+                    if (existingIds.has(t.id)) t.id = generateId();
+                    appTasks.push(t);
+                });
+            }
+            saveTasks();
+            renderApp();
+        } catch (err) {
+            alert('Import failed: ' + err.message);
+        }
+    };
+    reader.readAsText(file);
+}
+
 // --- INPUT AUTOSIZE ---
 function autosizeTextarea() {
     taskInput.style.height = 'auto';
@@ -449,13 +591,9 @@ function autosizeTextarea() {
 
 // --- EVENTS ---
 submitBtn.addEventListener('click', addTask);
-
 taskInput.addEventListener('input', autosizeTextarea);
 taskInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        addTask();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addTask(); }
 });
 
 durationChips.addEventListener('click', (e) => {
@@ -485,15 +623,24 @@ btnTheme.addEventListener('click', () => {
     applyTheme(next);
 });
 
+btnExport.addEventListener('click', exportTasks);
+btnImport.addEventListener('click', () => importFile.click());
+importFile.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) importTasks(file);
+    importFile.value = '';
+});
+
 document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closePopover();
+    if (e.key === 'Escape') {
+        if (!editDialog.classList.contains('hidden')) closeEditDialog();
+        else closePopover();
+    }
 });
 
 // --- STARTUP ---
-applyTheme(localStorage.getItem('calendarTheme') || 'light');
+applyTheme(localStorage.getItem(THEME_KEY) || 'light');
 loadTasks();
 renderApp();
 setupDropZone(todoListContainer);
-
-// Refresh now-line every minute
-nowLineTimer = setInterval(updateNowLine, 60_000);
+setInterval(updateNowLine, 60_000);
