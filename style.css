@@ -723,3 +723,155 @@ td.drag-over {
 
 /* Header icon buttons */
 #btn-export, #btn-import { padding: 6px 10px; font-size: 1rem; }
+#btn-budget {
+    padding: 6px 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+#btn-budget span { color: var(--text-muted); }
+
+/* ============================================================
+   EFFORT SYSTEM
+   ============================================================ */
+.effort-picker {
+    display: inline-flex;
+    gap: 4px;
+    padding: 3px;
+    border-radius: 999px;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+}
+.effort-dot {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.12s ease;
+}
+.effort-dot:hover { background: var(--surface); color: var(--text); }
+.effort-dot.active {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 0 0 3px var(--primary-ring);
+}
+.effort-hint {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--text-faint);
+    font-size: 0.7rem;
+    margin-left: 6px;
+}
+
+/* Effort badge on bubbles */
+.effort-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 14px; height: 14px;
+    border-radius: 999px;
+    background: hsl(var(--bubble-hue), 60%, 45%);
+    color: white;
+    font-size: 0.62rem;
+    font-weight: 700;
+    padding: 0 4px;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+.effort-badge.zero {
+    background: transparent;
+    color: currentColor;
+    opacity: 0.5;
+    border: 1px dashed currentColor;
+}
+#week-view-table .effort-badge {
+    position: absolute;
+    top: 4px; right: 22px;
+    margin: 0;
+}
+#month-view-table .effort-badge {
+    position: absolute;
+    top: 2px; right: 16px;
+    font-size: 0.55rem;
+    min-width: 12px; height: 12px;
+    margin: 0;
+}
+
+/* Habit indicator next to task text */
+.habit-indicator {
+    display: inline-block;
+    font-size: 0.65rem;
+    margin-left: 4px;
+    opacity: 0.5;
+}
+
+/* Day effort budget pill in week header */
+.day-budget {
+    display: inline-block;
+    margin-top: 3px;
+    font-size: 0.65rem;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-weight: 600;
+    background: var(--surface-alt);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    cursor: default;
+}
+.day-budget.loaded { color: #137333; background: #e6f4ea; border-color: #c7e8d0; }
+.day-budget.busy   { color: #8a6d1f; background: #fff4d5; border-color: #f4e1a0; cursor: pointer; }
+.day-budget.over   { color: #b42318; background: #fee4e2; border-color: #fecaca; cursor: pointer; animation: pulse 1.8s ease-in-out infinite; }
+[data-theme="dark"] .day-budget.loaded { color: #6bcf8c; background: #12311f; border-color: #1d4a2f; }
+[data-theme="dark"] .day-budget.busy   { color: #ecc86a; background: #3a2e10; border-color: #5a461c; }
+[data-theme="dark"] .day-budget.over   { color: #ff9089; background: #3e1916; border-color: #5e221d; }
+@keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239, 74, 90, 0.0); }
+    50%      { box-shadow: 0 0 0 6px rgba(239, 74, 90, 0.15); }
+}
+
+/* Suggestions modal */
+.suggest-section { display: flex; flex-direction: column; gap: 8px; }
+.suggest-section h5 {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-top: 6px;
+}
+.suggest-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+}
+.suggest-row .task-label { flex: 1; font-weight: 500; }
+.suggest-row .pts { color: var(--text-muted); font-size: 0.75rem; }
+.suggest-row .move-btn {
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    border: 1px solid var(--primary);
+    background: var(--primary-soft);
+    color: var(--primary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-weight: 600;
+}
+.suggest-row .move-btn:hover { background: var(--primary); color: white; }
+.suggest-summary {
+    padding: 10px 12px;
+    background: rgba(239, 74, 90, 0.08);
+    border: 1px solid rgba(239, 74, 90, 0.25);
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    color: var(--text);
+}

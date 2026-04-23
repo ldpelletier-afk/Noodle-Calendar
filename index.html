@@ -25,6 +25,7 @@
                     <button id="btn-export" title="Export tasks as JSON">⇩</button>
                     <button id="btn-import" title="Import tasks from JSON">⇧</button>
                     <input type="file" id="import-file" accept="application/json,.json" hidden>
+                    <button id="btn-budget" title="Daily effort budget">⚡<span id="budget-label">10</span></button>
                     <button id="btn-theme" title="Toggle theme">🌙</button>
                 </div>
             </header>
@@ -69,9 +70,17 @@
                         <button type="button" class="duration-chip" data-minutes="120">2h</button>
                         <button type="button" class="duration-chip" data-minutes="180">3h</button>
                     </div>
+                    <div class="effort-picker" id="new-effort-picker" title="Effort level">
+                        <button type="button" class="effort-dot" data-effort="0">0</button>
+                        <button type="button" class="effort-dot" data-effort="1">1</button>
+                        <button type="button" class="effort-dot" data-effort="2">2</button>
+                        <button type="button" class="effort-dot active" data-effort="3">3</button>
+                        <button type="button" class="effort-dot" data-effort="4">4</button>
+                        <button type="button" class="effort-dot" data-effort="5">5</button>
+                    </div>
                     <button id="submit-btn">Add task</button>
                 </div>
-                <div class="input-hint">Press <kbd>Enter</kbd> to add · <kbd>Shift</kbd>+<kbd>Enter</kbd> for newline</div>
+                <div class="input-hint">Press <kbd>Enter</kbd> to add · <kbd>Shift</kbd>+<kbd>Enter</kbd> for newline · <kbd>⚡</kbd> = effort 1–5</div>
             </div>
         </section>
 
@@ -106,6 +115,18 @@
                 </label>
 
                 <label class="modal-field">
+                    <span>Effort <small id="edit-effort-hint" class="effort-hint"></small></span>
+                    <div class="effort-picker" id="edit-effort-picker">
+                        <button type="button" class="effort-dot" data-effort="0" title="Free">0</button>
+                        <button type="button" class="effort-dot" data-effort="1" title="Trivial">1</button>
+                        <button type="button" class="effort-dot" data-effort="2" title="Light">2</button>
+                        <button type="button" class="effort-dot" data-effort="3" title="Moderate">3</button>
+                        <button type="button" class="effort-dot" data-effort="4" title="Heavy">4</button>
+                        <button type="button" class="effort-dot" data-effort="5" title="Draining">5</button>
+                    </div>
+                </label>
+
+                <label class="modal-field">
                     <span>Notes</span>
                     <textarea id="edit-notes" rows="3" placeholder="Optional details…"></textarea>
                 </label>
@@ -115,6 +136,20 @@
                 <div class="spacer"></div>
                 <button id="edit-cancel" class="btn-ghost">Cancel</button>
                 <button id="edit-save" class="btn-primary">Save</button>
+            </footer>
+        </div>
+    </div>
+
+    <div id="suggest-dialog" class="modal-backdrop hidden">
+        <div class="modal">
+            <header class="modal-header">
+                <h3 id="suggest-title">Day looks overloaded</h3>
+                <button class="modal-close" id="suggest-close" title="Close">×</button>
+            </header>
+            <div class="modal-body" id="suggest-body"></div>
+            <footer class="modal-footer">
+                <div class="spacer"></div>
+                <button id="suggest-dismiss" class="btn-ghost">Close</button>
             </footer>
         </div>
     </div>

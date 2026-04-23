@@ -5,14 +5,21 @@ const endHour = 20;
 const MAX_MONTH_BUBBLES = 2;
 const STORAGE_KEY = 'calendarTasks';
 const THEME_KEY = 'calendarTheme';
+const BUDGET_KEY = 'calendarDailyBudget';
+const DEFAULT_EFFORT = 3;
+const DEFAULT_BUDGET = 10;
+const EFFORT_LABELS = { 0: 'Free', 1: 'Trivial', 2: 'Light', 3: 'Moderate', 4: 'Heavy', 5: 'Draining' };
 
 // --- STATE ---
 let activeDate = new Date();
 let currentView = 'week';
 let appTasks = [];
 let selectedDuration = 60;
+let selectedEffort = DEFAULT_EFFORT;
 let editingId = null;
 let editingDuration = 60;
+let editingEffort = DEFAULT_EFFORT;
+let dailyBudget = parseInt(localStorage.getItem(BUDGET_KEY)) || DEFAULT_BUDGET;
 
 // --- ELEMENTS ---
 const $ = (id) => document.getElementById(id);
@@ -43,10 +50,22 @@ const editText = $('edit-text');
 const editNotes = $('edit-notes');
 const editCompleted = $('edit-completed');
 const editDurationChips = $('edit-duration-chips');
+const editEffortPicker = $('edit-effort-picker');
+const editEffortHint = $('edit-effort-hint');
 const editClose = $('edit-close');
 const editCancel = $('edit-cancel');
 const editSave = $('edit-save');
 const editDelete = $('edit-delete');
+
+// Effort / budget elements
+const newEffortPicker = $('new-effort-picker');
+const btnBudget = $('btn-budget');
+const budgetLabel = $('budget-label');
+const suggestDialog = $('suggest-dialog');
+const suggestBody = $('suggest-body');
+const suggestTitle = $('suggest-title');
+const suggestClose = $('suggest-close');
+const suggestDismiss = $('suggest-dismiss');
 
 // --- HELPERS ---
 function formatTime(hour) {
@@ -81,6 +100,60 @@ function formatDuration(minutes) {
     return Number.isInteger(h) ? `${h}h` : `${h}h`;
 }
 
+function normalizeTitle(text) {
+    return (text || '').trim().toLowerCase();
+}
+
+// Count how many other tasks have the same title (case-insensitive).
+// Ignoring the current task ID so editing doesn't self-count.
+function habitCount(title, excludeId = null) {
+    const key = normalizeTitle(title);
+    if (!key) return 0;
+    return appTasks.filter(t => t.id !== excludeId && normalizeTitle(t.text) === key).length;
+}
+
+// Suggested default effort for a new task: habitual tasks cost less.
+function suggestDefaultEffort(title) {
+    const n = habitCount(title);
+    if (n >= 3) return 1;
+    if (n >= 1) return 2;
+    return DEFAULT_EFFORT;
+}
+
+function isHabit(title) { return habitCount(title) >= 2; }
+
+// Sum of effort points on a given date across all tasks placed on the grid.
+function taskEffort(t) {
+    const n = parseInt(t.effort);
+    return (n >= 0 && n <= 5) ? n : DEFAULT_EFFORT;
+}
+
+function effortForDate(dateISO) {
+    return appTasks.reduce((sum, t) => {
+        if (t.location !== 'grid' || t.date !== dateISO || t.completed) return sum;
+        return sum + taskEffort(t);
+    }, 0);
+}
+
+function budgetStatus(points) {
+    if (points === 0) return 'empty';
+    if (points <= dailyBudget * 0.6) return 'loaded';
+    if (points <= dailyBudget) return 'busy';
+    return 'over';
+}
+
+// Return the 7 dates of the currently-viewed week as ISO strings.
+function currentWeekDates() {
+    const start = getStartOfWeek(activeDate);
+    const out = [];
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        out.push(getISODate(d));
+    }
+    return out;
+}
+
 // --- DATA ---
 function normalizeTask(t) {
     // Back-compat: legacy shape had t.location as object {type,date,time}
@@ -93,9 +166,11 @@ function normalizeTask(t) {
             date: t.location.date || null,
             time: t.location.time === 'all-day' ? `${startHour}:00` : (t.location.time || null),
             notes: '',
-            completed: false
+            completed: false,
+            effort: DEFAULT_EFFORT
         };
     }
+    const rawEffort = parseInt(t.effort);
     return {
         id: t.id || generateId(),
         text: t.text || '',
@@ -104,7 +179,8 @@ function normalizeTask(t) {
         date: t.date || null,
         time: t.time || null,
         notes: t.notes || '',
-        completed: Boolean(t.completed)
+        completed: Boolean(t.completed),
+        effort: (rawEffort >= 0 && rawEffort <= 5) ? rawEffort : DEFAULT_EFFORT
     };
 }
 
@@ -170,6 +246,23 @@ function renderWeekView() {
         const th = document.createElement('th');
         th.innerHTML = `${dayNames[i]}<small>${d.getDate()}</small>`;
         if (iso === todayISO) th.classList.add('today-col');
+
+        const points = effortForDate(iso);
+        if (points > 0) {
+            const badge = document.createElement('span');
+            const status = budgetStatus(points);
+            badge.className = `day-budget ${status}`;
+            badge.textContent = `${points}/${dailyBudget}`;
+            badge.title = `Effort: ${points} of ${dailyBudget} pts`;
+            if (status === 'over' || status === 'busy') {
+                badge.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openSuggestions(iso);
+                });
+            }
+            th.appendChild(document.createElement('br'));
+            th.appendChild(badge);
+        }
         weekHeaderRow.appendChild(th);
     }
 
@@ -260,7 +353,7 @@ function buildBubble(task, { compact = false } = {}) {
         e.stopPropagation();
         task.completed = !task.completed;
         saveTasks();
-        renderBubbles();
+        renderApp();
     });
     dot.addEventListener('mousedown', e => e.stopPropagation());
     bubble.appendChild(dot);
@@ -268,6 +361,13 @@ function buildBubble(task, { compact = false } = {}) {
     const textSpan = document.createElement('span');
     textSpan.className = 'task-text';
     textSpan.textContent = task.text;
+    if (isHabit(task.text)) {
+        const hab = document.createElement('span');
+        hab.className = 'habit-indicator';
+        hab.textContent = '🔁';
+        hab.title = 'Habitual task';
+        textSpan.appendChild(hab);
+    }
     if (task.notes) {
         const note = document.createElement('span');
         note.className = 'notes-indicator';
@@ -276,6 +376,14 @@ function buildBubble(task, { compact = false } = {}) {
         textSpan.appendChild(note);
     }
     bubble.appendChild(textSpan);
+
+    const effort = taskEffort(task);
+    const effortBadge = document.createElement('span');
+    effortBadge.className = 'effort-badge';
+    if (effort === 0) effortBadge.classList.add('zero');
+    effortBadge.textContent = effort;
+    effortBadge.title = `${EFFORT_LABELS[effort]} (${effort} pts)`;
+    bubble.appendChild(effortBadge);
 
     if (!compact) {
         const tag = document.createElement('span');
@@ -292,7 +400,7 @@ function buildBubble(task, { compact = false } = {}) {
         e.stopPropagation();
         appTasks = appTasks.filter(t => t.id !== task.id);
         saveTasks();
-        renderBubbles();
+        renderApp();
     };
     deleteBtn.addEventListener('mousedown', e => e.stopPropagation());
     bubble.appendChild(deleteBtn);
@@ -419,12 +527,21 @@ function openEditDialog(id) {
     if (!task) return;
     editingId = id;
     editingDuration = task.minutes;
+    editingEffort = taskEffort(task);
     editText.value = task.text;
     editNotes.value = task.notes || '';
     editCompleted.checked = Boolean(task.completed);
     editDurationChips.querySelectorAll('.duration-chip').forEach(c => {
         c.classList.toggle('active', parseInt(c.dataset.minutes) === task.minutes);
     });
+    editEffortPicker.querySelectorAll('.effort-dot').forEach(d => {
+        d.classList.toggle('active', parseInt(d.dataset.effort) === editingEffort);
+    });
+    const repeatN = habitCount(task.text, task.id);
+    editEffortHint.textContent = repeatN >= 2
+        ? `🔁 Habitual (seen ${repeatN + 1}× — habits usually cost less)`
+        : `${EFFORT_LABELS[editingEffort]} · ${editingEffort} pt${editingEffort === 1 ? '' : 's'}`;
+    if (editingEffort === 0) editEffortHint.textContent = `${EFFORT_LABELS[0]} · 0 pts`;
     editDialog.classList.remove('hidden');
     setTimeout(() => editText.focus(), 30);
 }
@@ -443,9 +560,11 @@ function saveEditDialog() {
     task.notes = editNotes.value.trim();
     task.completed = editCompleted.checked;
     task.minutes = editingDuration;
+    task.effort = editingEffort;
     saveTasks();
-    renderBubbles();
+    renderApp();
     closeEditDialog();
+    maybeAlertOverload(task.date);
 }
 
 editClose.addEventListener('click', closeEditDialog);
@@ -455,7 +574,7 @@ editDelete.addEventListener('click', () => {
     if (!editingId) return;
     appTasks = appTasks.filter(t => t.id !== editingId);
     saveTasks();
-    renderBubbles();
+    renderApp();
     closeEditDialog();
 });
 editDialog.addEventListener('click', (e) => {
@@ -471,6 +590,32 @@ editDurationChips.addEventListener('click', (e) => {
     chip.classList.add('active');
     editingDuration = parseInt(chip.dataset.minutes);
 });
+editEffortPicker.addEventListener('click', (e) => {
+    const dot = e.target.closest('.effort-dot');
+    if (!dot) return;
+    editEffortPicker.querySelectorAll('.effort-dot').forEach(d => d.classList.remove('active'));
+    dot.classList.add('active');
+    editingEffort = parseInt(dot.dataset.effort);
+    editEffortHint.textContent = `${EFFORT_LABELS[editingEffort]} · ${editingEffort} pt${editingEffort === 1 ? '' : 's'}`;
+});
+newEffortPicker.addEventListener('click', (e) => {
+    const dot = e.target.closest('.effort-dot');
+    if (!dot) return;
+    newEffortPicker.querySelectorAll('.effort-dot').forEach(d => d.classList.remove('active'));
+    dot.classList.add('active');
+    selectedEffort = parseInt(dot.dataset.effort);
+});
+taskInput.addEventListener('input', () => {
+    // Auto-suggest effort when typing a known habit (only if user hasn't overridden)
+    const suggested = suggestDefaultEffort(taskInput.value);
+    const currentActive = newEffortPicker.querySelector('.effort-dot.active');
+    if (currentActive && parseInt(currentActive.dataset.effort) === DEFAULT_EFFORT && suggested !== DEFAULT_EFFORT) {
+        newEffortPicker.querySelectorAll('.effort-dot').forEach(d => {
+            d.classList.toggle('active', parseInt(d.dataset.effort) === suggested);
+        });
+        selectedEffort = suggested;
+    }
+});
 
 // --- ADD TASK ---
 function addTask() {
@@ -484,7 +629,8 @@ function addTask() {
         date: null,
         time: null,
         notes: '',
-        completed: false
+        completed: false,
+        effort: selectedEffort
     });
     taskInput.value = '';
     autosizeTextarea();
@@ -520,9 +666,11 @@ function setupDropZone(element) {
         if (!draggedItem) return;
         const task = appTasks.find(t => t.id === draggedItem.id);
         if (!task) return;
+        let droppedDate = null;
         if (element.tagName === 'TD') {
             task.location = 'grid';
             task.date = element.dataset.date;
+            droppedDate = task.date;
             if (currentView === 'week') task.time = element.dataset.time;
             else if (!task.time) task.time = `${startHour}:00`;
         } else if (element.id === 'todo-list-container') {
@@ -531,7 +679,8 @@ function setupDropZone(element) {
             task.time = null;
         }
         saveTasks();
-        renderBubbles();
+        renderApp();
+        if (droppedDate) maybeAlertOverload(droppedDate);
     });
 }
 
@@ -631,14 +780,133 @@ importFile.addEventListener('change', (e) => {
     importFile.value = '';
 });
 
+// --- SUGGESTIONS ---
+function openSuggestions(dateISO) {
+    const tasksOnDay = appTasks
+        .filter(t => t.location === 'grid' && t.date === dateISO && !t.completed)
+        .slice()
+        .sort((a, b) => taskEffort(b) - taskEffort(a));
+    const total = effortForDate(dateISO);
+    const over = total - dailyBudget;
+
+    // Spare capacity per day in the current week (skip the overloaded one and the past)
+    const todayISO = getISODate(new Date());
+    const alternatives = currentWeekDates()
+        .filter(iso => iso !== dateISO && iso >= todayISO)
+        .map(iso => ({ iso, used: effortForDate(iso), free: dailyBudget - effortForDate(iso) }))
+        .filter(x => x.free > 0)
+        .sort((a, b) => b.free - a.free);
+
+    const prettyDate = new Date(dateISO + 'T00:00').toLocaleDateString(undefined, {
+        weekday: 'long', month: 'short', day: 'numeric'
+    });
+    suggestTitle.textContent = over > 0
+        ? `${prettyDate} is ${over} pts over`
+        : `${prettyDate} — balance check`;
+    suggestBody.innerHTML = '';
+
+    if (over > 0) {
+        const summary = document.createElement('div');
+        summary.className = 'suggest-summary';
+        summary.textContent = `Using ${total}/${dailyBudget} pts. Consider moving the heaviest task below to a lighter day.`;
+        suggestBody.appendChild(summary);
+    }
+
+    const section = document.createElement('div');
+    section.className = 'suggest-section';
+    const heading = document.createElement('h5');
+    heading.textContent = over > 0 ? 'Tasks on this day (heaviest first)' : 'Tasks on this day';
+    section.appendChild(heading);
+
+    tasksOnDay.forEach(task => {
+        const row = document.createElement('div');
+        row.className = 'suggest-row';
+
+        const label = document.createElement('span');
+        label.className = 'task-label';
+        label.textContent = task.text;
+        row.appendChild(label);
+
+        const pts = document.createElement('span');
+        pts.className = 'pts';
+        pts.textContent = `${taskEffort(task)} pts · ${formatDuration(task.minutes)}`;
+        row.appendChild(pts);
+
+        // Pick best alternative day where this task fits without overflowing
+        const fit = alternatives.find(a => a.used + taskEffort(task) <= dailyBudget);
+        if (fit) {
+            const moveBtn = document.createElement('button');
+            moveBtn.className = 'move-btn';
+            const niceDay = new Date(fit.iso + 'T00:00')
+                .toLocaleDateString(undefined, { weekday: 'short' });
+            moveBtn.textContent = `→ ${niceDay} (${fit.used}/${dailyBudget})`;
+            moveBtn.title = `Move to ${niceDay}`;
+            moveBtn.onclick = () => {
+                task.date = fit.iso;
+                saveTasks();
+                closeSuggestDialog();
+                renderApp();
+            };
+            row.appendChild(moveBtn);
+        }
+        section.appendChild(row);
+    });
+
+    if (tasksOnDay.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'suggest-summary';
+        empty.style.background = 'var(--surface-alt)';
+        empty.style.border = '1px solid var(--border)';
+        empty.textContent = 'Nothing scheduled here.';
+        section.appendChild(empty);
+    }
+
+    suggestBody.appendChild(section);
+    suggestDialog.classList.remove('hidden');
+}
+
+function closeSuggestDialog() {
+    suggestDialog.classList.add('hidden');
+}
+
+function maybeAlertOverload(dateISO) {
+    if (!dateISO) return;
+    if (effortForDate(dateISO) > dailyBudget) openSuggestions(dateISO);
+}
+
+suggestClose.addEventListener('click', closeSuggestDialog);
+suggestDismiss.addEventListener('click', closeSuggestDialog);
+suggestDialog.addEventListener('click', (e) => {
+    if (e.target === suggestDialog) closeSuggestDialog();
+});
+
+// --- BUDGET SETTING ---
+function updateBudgetLabel() { budgetLabel.textContent = dailyBudget; }
+btnBudget.addEventListener('click', () => {
+    const input = prompt(
+        `Daily effort budget (current: ${dailyBudget} pts)\n` +
+        `How many points can you comfortably spend in one day?`,
+        dailyBudget
+    );
+    if (input === null) return;
+    const n = parseInt(input);
+    if (!n || n < 1 || n > 50) return alert('Please enter a number between 1 and 50.');
+    dailyBudget = n;
+    localStorage.setItem(BUDGET_KEY, String(n));
+    updateBudgetLabel();
+    renderApp();
+});
+
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         if (!editDialog.classList.contains('hidden')) closeEditDialog();
+        else if (!suggestDialog.classList.contains('hidden')) closeSuggestDialog();
         else closePopover();
     }
 });
 
 // --- STARTUP ---
+updateBudgetLabel();
 applyTheme(localStorage.getItem(THEME_KEY) || 'light');
 loadTasks();
 renderApp();
